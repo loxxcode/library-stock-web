@@ -1,4 +1,26 @@
-const API_BASE_URL = '/api';
+const getApiBaseUrl = () => {
+  // Check for environment variable first
+  const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envApiUrl) {
+    return envApiUrl;
+  }
+  
+  // Fallback logic
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000/api';
+  }
+  
+  // Production environment
+  const frontendUrl = window.location.origin;
+  if (frontendUrl === 'https://library-stock-web.vercel.app') {
+    return 'https://library-stock-web.onrender.com/api';
+  }
+  
+  // Fallback for other production environments
+  return 'https://library-stock-web.onrender.com/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = {
   // Auth endpoints
