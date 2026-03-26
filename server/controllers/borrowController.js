@@ -4,6 +4,7 @@ const StockLog = require('../models/StockLog');
 
 const createBorrow = async (req, res) => {
   try {
+    console.log('Creating borrow with data:', req.body);
     const { bookId, userId, dueDate } = req.body;
 
     if (!bookId || !userId) {
@@ -50,6 +51,8 @@ const createBorrow = async (req, res) => {
       dueDate: dueDate ? new Date(dueDate) : undefined
     });
 
+    console.log('Borrow created:', borrow);
+
     await StockLog.create({
       bookId,
       action: 'borrow',
@@ -67,6 +70,7 @@ const createBorrow = async (req, res) => {
       data: populatedBorrow
     });
   } catch (error) {
+    console.error('Error creating borrow:', error);
     res.status(500).json({
       success: false,
       message: error.message

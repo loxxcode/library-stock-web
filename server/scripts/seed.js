@@ -17,7 +17,7 @@ const seedAdmin = async () => {
     const admin = await User.create({
       name: 'System Administrator',
       email: 'admin@library.com',
-      password: 'admin123',
+      password: 'admin123', // Model will hash this automatically
       role: 'admin'
     });
 
@@ -25,6 +25,16 @@ const seedAdmin = async () => {
     console.log('Email: admin@library.com');
     console.log('Password: admin123');
     console.log('Role: admin');
+
+    // Verify the user was created correctly
+    const adminWithPassword = await User.findOne({ email: 'admin@library.com' }).select('+password');
+    const isValid = await adminWithPassword.comparePassword('admin123');
+    
+    if (isValid) {
+      console.log('✅ Admin user password verified and ready for login');
+    } else {
+      console.log('❌ Admin user password verification failed');
+    }
 
     process.exit(0);
   } catch (error) {

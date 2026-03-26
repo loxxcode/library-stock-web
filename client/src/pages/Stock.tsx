@@ -1,8 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Package, AlertTriangle, Plus, History, Search, Filter, Upload, Download, Minus } from "lucide-react";
 import { StatCard } from "@/components/shared/StatCard";
 import { DataTable } from "@/components/shared/DataTable";
-import { stockItems as initialStockItems, type StockItem } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,9 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useExportStore } from "@/stores/useExportStore";
+import { useStock, useCreateStockItem, useUpdateStock, StockItem } from "@/hooks/useStock";
 
 export default function Stock() {
-  const [items, setItems] = useState<StockItem[]>(initialStockItems);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportItem, setExportItem] = useState<StockItem | null>(null);
@@ -24,11 +23,35 @@ export default function Stock() {
   const [stockFilter, setStockFilter] = useState<string>("all");
   const addExport = useExportStore((s) => s.addExport);
 
+  // Get real data from API
+  const { data: stockData, isLoading, error } = useStock({
+    page: 1,
+    limit: 10,
+    search: search || undefined,
+    type: typeFilter !== "all" ? typeFilter : undefined,
+    stockLevel: stockFilter !== "all" ? stockFilter : undefined,
+  });
+  
+  const items = stockData?.data || [];
+  
+  const createStockMutation = useCreateStockItem();
+  const updateStockMutation = useUpdateStock();
+
+  // Mock data for form (replace with API call when backend is ready)
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"book" | "supply">("book");
   const [newCategory, setNewCategory] = useState("");
   const [newQty, setNewQty] = useState("");
   const [newMin, setNewMin] = useState("");
+
+  // Debug logging
+  useEffect(() => {
+    console.log('📦 Stock page debug:');
+    console.log('stockData:', stockData);
+    console.log('items:', items);
+    console.log('isLoading:', isLoading);
+    console.log('error:', error);
+  }, [stockData, items, isLoading, error]);
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -42,22 +65,43 @@ export default function Stock() {
   const lowStock = items.filter((i) => i.quantity <= i.minStock);
   const totalItems = items.reduce((a, b) => a + b.quantity, 0);
 
-  const handleAddItem = () => {
-    if (!newName.trim() || !newCategory.trim()) { toast.error("Please fill in all required fields"); return; }
-    const newItem: StockItem = {
-      id: String(Date.now()), name: newName, type: newType, category: newCategory,
-      quantity: parseInt(newQty) || 0, minStock: parseInt(newMin) || 0,
-      lastUpdated: new Date().toISOString().split("T")[0],
-    };
-    setItems((prev) => [newItem, ...prev]);
-    toast.success(`"${newName}" added to stock`);
-    setDialogOpen(false);
-    setNewName(""); setNewCategory(""); setNewQty(""); setNewMin("");
+  const handleAddItem = async () => {
+    if (!newName.trim() || !newCategory.trim()) { 
+      toast.error("Please fill in all required fields"); 
+      return; 
+    }
+    
+    const formData = new FormData();
+    formData.append('name', newName);
+    formData.append('type', newType);
+    formData.append('category', newCategory);
+    formData.append('quantity', newQty);
+    formData.append('minStock', newMin);
+    
+    try {
+      await createStockMutation.mutateAsync(formData);
+      setDialogOpen(false);
+      setNewName(""); 
+      setNewCategory(""); 
+      setNewQty(""); 
+      setNewMin("");
+    } catch (error) {
+      // Error is handled by the mutation
+    }
   };
 
-  const handleAddStock = (id: string) => {
-    setItems((prev) => prev.map((item) => item.id === id ? { ...item, quantity: item.quantity + 1, lastUpdated: new Date().toISOString().split("T")[0] } : item));
-    toast.success(`Added 1 to "${items.find((i) => i.id === id)?.name}"`);
+  const handleAddStock = async (id: string) => {
+    try {
+      const item = items.find((i) => i._id === id);
+      if (item) {
+        await updateStockMutation.mutateAsync({ 
+          id, 
+          quantity: item.quantity + 1 
+        });
+      }
+    } catch (error) {
+      // Error is handled by the mutation
+    }
   };
 
   const openExportDialog = (item: StockItem) => {
@@ -72,11 +116,23 @@ export default function Stock() {
     const qty = parseInt(exportQty) || 0;
     if (qty <= 0 || qty > exportItem.quantity) { toast.error(`Enter a valid quantity (1–${exportItem.quantity})`); return; }
     if (!exportReason.trim()) { toast.error("Please provide a reason"); return; }
-    setItems((prev) => prev.map((item) => item.id === exportItem.id ? { ...item, quantity: item.quantity - qty, lastUpdated: new Date().toISOString().split("T")[0] } : item));
+    
+    // Update stock locally for now (backend integration needed)
+    const updatedItems = items.map((item) => 
+      item._id === exportItem._id 
+        ? { ...item, quantity: item.quantity - qty, lastUpdated: new Date().toISOString().split("T")[0] }
+        : item
+    );
+    
     addExport({
-      id: String(Date.now()), itemName: exportItem.name, category: exportItem.category,
-      type: exportItem.type, quantity: qty, exportedBy: "Alice Johnson",
-      exportDate: new Date().toISOString().split("T")[0], reason: exportReason,
+      id: String(Date.now()), 
+      itemName: exportItem.name, 
+      category: exportItem.category,
+      type: exportItem.type, 
+      quantity: qty, 
+      exportedBy: "Alice Johnson",
+      exportDate: new Date().toISOString().split("T")[0], 
+      reason: exportReason,
     });
     toast.success(`Exported ${qty} × "${exportItem.name}"`);
     setExportDialogOpen(false);
@@ -103,42 +159,51 @@ export default function Stock() {
       const imported: StockItem[] = lines.map((line, idx) => {
         const [name, type, category, quantity, minStock, lastUpdated] = line.split(",").map((s) => s.trim());
         return {
-          id: `import-${Date.now()}-${idx}`, name: name || "Unknown",
+          _id: `import-${Date.now()}-${idx}`, name: name || "Unknown",
           type: (type === "supply" ? "supply" : "book") as "book" | "supply",
           category: category || "General", quantity: parseInt(quantity) || 0,
           minStock: parseInt(minStock) || 0, lastUpdated: lastUpdated || new Date().toISOString().split("T")[0],
         };
       });
-      if (imported.length > 0) { setItems((prev) => [...imported, ...prev]); toast.success(`Imported ${imported.length} items`); }
+      if (imported.length > 0) { 
+        toast.success(`Imported ${imported.length} items`); 
+      }
       else { toast.error("No valid data found in file"); }
     };
     reader.readAsText(file);
     e.target.value = "";
   };
 
-  const columns = [
-    { header: "Item", accessor: ((row: StockItem) => <span className="font-medium">{row.name}</span>) as (row: StockItem) => React.ReactNode },
-    { header: "Type", accessor: ((row: StockItem) => (
+  const columns: Array<{
+    header: string;
+    accessor: keyof (typeof itemsWithId)[0] | ((row: (typeof itemsWithId)[0]) => React.ReactNode);
+    className?: string;
+  }> = [
+    { header: "Item", accessor: ((row: (typeof itemsWithId)[0]) => <span className="font-medium">{row.name}</span>) as (row: (typeof itemsWithId)[0]) => React.ReactNode },
+    { header: "Type", accessor: ((row: (typeof itemsWithId)[0]) => (
       <span className={cn("status-badge", row.type === "book" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "bg-muted text-muted-foreground")}>
         {row.type === "book" ? "Book" : "Supply"}
       </span>
-    )) as (row: StockItem) => React.ReactNode },
-    { header: "Category", accessor: "category" as keyof StockItem, className: "hidden md:table-cell" },
-    { header: "Quantity", accessor: ((row: StockItem) => (
+    )) as (row: (typeof itemsWithId)[0]) => React.ReactNode },
+    { header: "Category", accessor: "category" as keyof (typeof itemsWithId)[0], className: "hidden md:table-cell" },
+    { header: "Quantity", accessor: ((row: (typeof itemsWithId)[0]) => (
       <div className="flex items-center gap-2">
         <span className={cn("font-semibold", row.quantity <= row.minStock && "text-destructive")}>{row.quantity}</span>
         {row.quantity <= row.minStock && <AlertTriangle className="h-4 w-4 text-amber-500" />}
       </div>
-    )) as (row: StockItem) => React.ReactNode },
-    { header: "Min Stock", accessor: "minStock" as keyof StockItem },
-    { header: "Updated", accessor: "lastUpdated" as keyof StockItem, className: "hidden lg:table-cell" },
-    { header: "Actions", accessor: ((row: StockItem) => (
+    )) as (row: (typeof itemsWithId)[0]) => React.ReactNode },
+    { header: "Min Stock", accessor: "minStock" as keyof (typeof itemsWithId)[0] },
+    { header: "Updated", accessor: "lastUpdated" as keyof (typeof itemsWithId)[0], className: "hidden lg:table-cell" },
+    { header: "Actions", accessor: ((row: (typeof itemsWithId)[0]) => (
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" onClick={() => handleAddStock(row.id)}><Plus className="h-3.5 w-3.5 mr-1" />Add</Button>
+        <Button variant="outline" size="sm" onClick={() => handleAddStock(row._id)}><Plus className="h-3.5 w-3.5 mr-1" />Add</Button>
         <Button variant="outline" size="sm" onClick={() => openExportDialog(row)} disabled={row.quantity === 0}><Minus className="h-3.5 w-3.5 mr-1" />Export</Button>
       </div>
-    )) as (row: StockItem) => React.ReactNode },
+    )) as (row: (typeof itemsWithId)[0]) => React.ReactNode },
   ];
+
+  // Transform items to have 'id' property for DataTable
+  const itemsWithId = items.map(item => ({ ...item, id: item._id }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -201,7 +266,11 @@ export default function Stock() {
         </Select>
       </div>
 
-      <DataTable columns={columns} data={filtered} />
+      <DataTable 
+        columns={columns} 
+        data={items.map(item => ({ ...item, id: item._id }))} 
+        isLoading={isLoading} 
+      />
 
       {/* Export Product Dialog */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>

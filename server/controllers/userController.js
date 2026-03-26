@@ -70,6 +70,7 @@ const getUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
+    console.log('Creating user with data:', req.body);
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
@@ -94,11 +95,14 @@ const createUser = async (req, res) => {
       role: role || 'staff'
     });
 
+    console.log('User created:', user);
+
     res.status(201).json({
       success: true,
       data: user
     });
   } catch (error) {
+    console.error('Error creating user:', error);
     res.status(500).json({
       success: false,
       message: error.message

@@ -2,22 +2,29 @@ const getApiBaseUrl = () => {
   // Check for environment variable first
   const envApiUrl = import.meta.env.VITE_API_BASE_URL;
   if (envApiUrl) {
+    console.log('🔧 Using environment variable API URL:', envApiUrl);
     return envApiUrl;
   }
   
   // Fallback logic
   if (import.meta.env.DEV) {
-    return 'http://localhost:5000/api';
+    const devUrl = 'http://localhost:5000/api';
+    console.log('🔧 Using development API URL:', devUrl);
+    return devUrl;
   }
   
   // Production environment
   const frontendUrl = window.location.origin;
   if (frontendUrl === 'https://library-stock-web.vercel.app') {
-    return 'https://library-stock-web.onrender.com/api';
+    const prodUrl = 'https://library-stock-web.onrender.com/api';
+    console.log('🔧 Using production API URL:', prodUrl);
+    return prodUrl;
   }
   
   // Fallback for other production environments
-  return 'https://library-stock-web.onrender.com/api';
+  const fallbackUrl = 'https://library-stock-web.onrender.com/api';
+  console.log('🔧 Using fallback API URL:', fallbackUrl);
+  return fallbackUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -66,8 +73,23 @@ export const api = {
       category?: string;
       author?: string;
     }) => {
-      const queryParams = new URLSearchParams(params as any).toString();
-      const url = `${API_BASE_URL}/books${queryParams ? `?${queryParams}` : ''}`;
+      // Build query string only with defined values
+      const queryParams = new URLSearchParams();
+      
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.category) queryParams.append('category', params.category);
+      if (params?.author) queryParams.append('author', params.author);
+      
+      const queryString = queryParams.toString();
+      const url = `${API_BASE_URL}/books${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('🌐 API Call - Getting all books:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Params:', params);
+      console.log('  Query String:', queryString);
       
       const response = await fetch(url, {
         headers: {
@@ -75,11 +97,17 @@ export const api = {
         },
       });
       
+      console.log('🌐 API Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch books');
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to fetch books');
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
     
     getById: async (token: string, id: string) => {
@@ -96,13 +124,13 @@ export const api = {
       return response.json();
     },
     
-    create: async (token: string, bookData: FormData) => {
+    create: async (token: string, formData: FormData) => {
       const response = await fetch(`${API_BASE_URL}/books`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-        body: bookData,
+        body: formData,
       });
       
       if (!response.ok) {
@@ -113,13 +141,14 @@ export const api = {
       return response.json();
     },
     
-    update: async (token: string, id: string, bookData: FormData) => {
+    update: async (token: string, id: string, data: any) => {
       const response = await fetch(`${API_BASE_URL}/books/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: bookData,
+        body: JSON.stringify(data),
       });
       
       if (!response.ok) {
@@ -149,8 +178,8 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/books/${id}/add-stock`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ quantity }),
       });
@@ -166,8 +195,8 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/books/${id}/remove-stock`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ quantity }),
       });
@@ -182,16 +211,30 @@ export const api = {
 
   // Stock endpoints
   stock: {
-    getLogs: async (token: string, params?: {
+    getAll: async (token: string, params?: {
       page?: number;
       limit?: number;
-      bookId?: string;
-      action?: string;
-      startDate?: string;
-      endDate?: string;
+      search?: string;
+      type?: string;
+      stockLevel?: string;
     }) => {
-      const queryParams = new URLSearchParams(params as any).toString();
-      const url = `${API_BASE_URL}/stock/logs${queryParams ? `?${queryParams}` : ''}`;
+      // Build query string only with defined values
+      const queryParams = new URLSearchParams();
+      
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.stockLevel) queryParams.append('stockLevel', params.stockLevel);
+      
+      const queryString = queryParams.toString();
+      const url = `${API_BASE_URL}/stock${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('🌐 API Call - Getting stock items:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Params:', params);
+      console.log('  Query String:', queryString);
       
       const response = await fetch(url, {
         headers: {
@@ -199,30 +242,187 @@ export const api = {
         },
       });
       
+      console.log('🌐 API Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch stock logs');
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to fetch stock items');
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
     
-    getSummary: async (token: string) => {
-      const response = await fetch(`${API_BASE_URL}/stock/summary`, {
+    create: async (token: string, formData: FormData) => {
+      const url = `${API_BASE_URL}/stock`;
+      
+      console.log('🌐 API Call - Creating stock item:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      
+      console.log('🌐 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to create stock item');
+      }
+      
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
+    },
+    
+    update: async (token: string, id: string, data: { quantity: number }) => {
+      const url = `${API_BASE_URL}/stock/${id}`;
+      
+      console.log('🌐 API Call - Updating stock item:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Data:', data);
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      console.log('🌐 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to update stock item');
+      }
+      
+      const result = await response.json();
+      console.log('🌐 API Success response:', result);
+      return result;
+    },
+  },
+      
+  // Users endpoints
+  users: {
+    getAll: async (token: string, params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      role?: string;
+    }) => {
+      // Build query string only with defined values
+      const queryParams = new URLSearchParams();
+      
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.role) queryParams.append('role', params.role);
+      
+      const queryString = queryParams.toString();
+      const url = `${API_BASE_URL}/users${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('🌐 API Call - Getting users:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Params:', params);
+      console.log('  Query String:', queryString);
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
+      console.log('🌐 API Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch stock summary');
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to fetch users');
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
+    },
+    
+    create: async (token: string, userData: {
+      name: string;
+      email: string;
+      password: string;
+      role: 'admin' | 'staff' | 'student';
+    }) => {
+      const url = `${API_BASE_URL}/users`;
+      
+      console.log('🌐 API Call - Creating user:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  User data:', userData);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+      
+      console.log('🌐 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to create user');
+      }
+      
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
+    },
+    
+    delete: async (token: string, userId: string) => {
+      const url = `${API_BASE_URL}/users/${userId}`;
+      
+      console.log('🌐 API Call - Deleting user:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      console.log('🌐 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to delete user');
+      }
+      
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
   },
 
-  // Borrow endpoints
-  borrow: {
+  // Borrows endpoints
+  borrows: {
     getAll: async (token: string, params?: {
       page?: number;
       limit?: number;
@@ -230,8 +430,23 @@ export const api = {
       bookId?: string;
       status?: string;
     }) => {
-      const queryParams = new URLSearchParams(params as any).toString();
-      const url = `${API_BASE_URL}/borrow${queryParams ? `?${queryParams}` : ''}`;
+      // Build query string only with defined values
+      const queryParams = new URLSearchParams();
+      
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.userId) queryParams.append('userId', params.userId);
+      if (params?.bookId) queryParams.append('bookId', params.bookId);
+      if (params?.status) queryParams.append('status', params.status);
+      
+      const queryString = queryParams.toString();
+      const url = `${API_BASE_URL}/borrows${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('🌐 API Call - Getting borrows:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Params:', params);
+      console.log('  Query String:', queryString);
       
       const response = await fetch(url, {
         headers: {
@@ -239,168 +454,78 @@ export const api = {
         },
       });
       
+      console.log('🌐 API Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch borrow records');
+        const error = await response.json();
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to fetch borrows');
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
     
     create: async (token: string, borrowData: {
-      bookId: string;
       userId: string;
-      dueDate?: string;
+      bookId: string;
+      dueDate: string;
     }) => {
-      const response = await fetch(`${API_BASE_URL}/borrow`, {
+      const url = `${API_BASE_URL}/borrows`;
+      
+      console.log('🌐 API Call - Creating borrow:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      console.log('  Borrow data:', borrowData);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(borrowData),
       });
       
+      console.log('🌐 API Response status:', response.status);
+      
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create borrow record');
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to create borrow');
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
     
-    returnBook: async (token: string, id: string) => {
-      const response = await fetch(`${API_BASE_URL}/borrow/return/${id}`, {
+    returnBook: async (token: string, borrowId: string) => {
+      const url = `${API_BASE_URL}/borrows/return/${borrowId}`;
+      
+      console.log('🌐 API Call - Returning book:');
+      console.log('  URL:', url);
+      console.log('  Token:', token ? 'present' : 'missing');
+      
+      const response = await fetch(url, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to return book');
-      }
-      
-      return response.json();
-    },
-    
-    getOverdue: async (token: string, params?: {
-      page?: number;
-      limit?: number;
-    }) => {
-      const queryParams = new URLSearchParams(params as any).toString();
-      const url = `${API_BASE_URL}/borrow/overdue${queryParams ? `?${queryParams}` : ''}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch overdue books');
-      }
-      
-      return response.json();
-    },
-  },
-
-  // Users endpoints
-  users: {
-    getAll: async (token: string, params?: {
-      page?: number;
-      limit?: number;
-      role?: string;
-      search?: string;
-    }) => {
-      const queryParams = new URLSearchParams(params as any).toString();
-      const url = `${API_BASE_URL}/users${queryParams ? `?${queryParams}` : ''}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-      
-      return response.json();
-    },
-    
-    getById: async (token: string, id: string) => {
-      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch user');
-      }
-      
-      return response.json();
-    },
-    
-    create: async (token: string, userData: {
-      name: string;
-      email: string;
-      password: string;
-      role?: string;
-    }) => {
-      const response = await fetch(`${API_BASE_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(userData),
-      });
+      console.log('🌐 API Response status:', response.status);
       
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create user');
+        console.error('🌐 API Error response:', error);
+        throw new Error(error.message || 'Failed to return book');
       }
       
-      return response.json();
-    },
-    
-    update: async (token: string, id: string, userData: {
-      name?: string;
-      email?: string;
-      role?: string;
-      password?: string;
-    }) => {
-      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(userData),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update user');
-      }
-      
-      return response.json();
-    },
-    
-    delete: async (token: string, id: string) => {
-      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
-      
-      return response.json();
+      const data = await response.json();
+      console.log('🌐 API Success response:', data);
+      return data;
     },
   },
 };

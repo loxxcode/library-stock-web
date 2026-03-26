@@ -24,12 +24,18 @@ const bookSchema = new mongoose.Schema({
     required: [true, 'ISBN is required'],
     unique: true,
     trim: true,
-    match: [/^(?:ISBN(?:-1[03])?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]$/, 'Please provide a valid ISBN']
+    match: [/^(?:ISBN(?:-1[03])?:? )?(?=[0-9X]{10}$|(?=(?:[0-9]+[- ]){3})[- 0-9X]{13}$|97[89][0-9]{10}$|(?=(?:[0-9]+[- ]){4})[- 0-9]{17}$)(?:97[89][- ]?)?[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9X]$/, 'Please provide a valid ISBN']
   },
   quantity: {
     type: Number,
     required: [true, 'Quantity is required'],
     min: [0, 'Quantity cannot be negative']
+  },
+  minStock: {
+    type: Number,
+    required: [true, 'Minimum stock is required'],
+    min: [0, 'Minimum stock cannot be negative'],
+    default: 5
   },
   availableQuantity: {
     type: Number,

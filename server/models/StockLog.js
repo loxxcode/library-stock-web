@@ -3,17 +3,17 @@ const mongoose = require('mongoose');
 const stockLogSchema = new mongoose.Schema({
   bookId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Book',
-    required: [true, 'Book ID is required']
+    ref: 'StockItem', // Changed from 'Book' to 'StockItem'
+    required: [true, 'Stock Item ID is required']
   },
   action: {
     type: String,
     required: [true, 'Action is required'],
-    enum: ['add', 'remove', 'borrow', 'return']
+    enum: ['add', 'remove', 'borrow', 'return', 'added', 'updated'] // Added 'added' and 'updated'
   },
-  quantityChanged: {
+  quantity: { // Changed from 'quantityChanged' to 'quantity'
     type: Number,
-    required: [true, 'Quantity changed is required']
+    required: [true, 'Quantity is required']
   },
   date: {
     type: Date,

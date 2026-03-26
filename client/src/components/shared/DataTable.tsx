@@ -21,9 +21,10 @@ interface DataTableProps<T> {
   data: T[];
   pageSize?: number;
   emptyMessage?: string;
+  isLoading?: boolean;
 }
 
-export function DataTable<T extends { id: string }>({ columns, data, pageSize = 8, emptyMessage = "No data found" }: DataTableProps<T>) {
+export function DataTable<T extends { id: string }>({ columns, data, pageSize = 8, emptyMessage = "No data found", isLoading = false }: DataTableProps<T>) {
   const [page, setPage] = useState(0);
   const totalPages = Math.ceil(data.length / pageSize);
   const paged = data.slice(page * pageSize, (page + 1) * pageSize);
@@ -40,7 +41,16 @@ export function DataTable<T extends { id: string }>({ columns, data, pageSize = 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paged.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span className="text-muted-foreground">Loading...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : paged.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
                   {emptyMessage}
